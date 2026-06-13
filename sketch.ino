@@ -7,6 +7,12 @@
  *   Potentiometer -> pH                (V3)  [simulates a pH probe]
  *   Potentiometer -> EC / TDS          (V4)  [simulates an EC/TDS probe]
  *
+ * Control:
+ *   The DEVICE is the brain. It auto-actuates the 4 outputs (V5..V8) from the sensor
+ *   readings, using limits the app shares as a JSON string on V10. The dashboard only
+ *   monitors, edits limits, and offers manual override. Built-in defaults keep the rig
+ *   self-regulating even if the app never connects.
+ *
  * Notes:
  *   - All analog pins use ADC1 (GPIO 32-39). ESP32 ADC2 does NOT work while WiFi is on.
  *   - In Wokwi, SSID "Wokwi-GUEST" (empty password) provides real internet access.
@@ -21,6 +27,7 @@
 #include <WiFi.h>
 #include <BlynkSimpleEsp32.h>
 #include <DHT.h>
+#include <ArduinoJson.h>
 
 // ---- WiFi (Wokwi-GUEST gives internet in the simulator) ----
 char ssid[] = "Wokwi-GUEST";
@@ -42,33 +49,79 @@ char pass[] = "";
 DHT dht(DHTPIN, DHTTYPE);
 BlynkTimer timer;
 
-// ---- Actuator state mirror (for serial debug only; the app is the brain) ----
+// ---- Actuator state mirror ----
 bool stNutrient = false, stAcid = false, stBase = false, stWater = false;
 
-// Drive a pin, mirror its state, and log the change. The device is a dumb I/O:
-// every command arrives from the app/auto-actuation as a V-pin write ("remoto").
-void logAct(const char *name, int on, bool &state) {
+// ---- Control limits (shared by the app as JSON on V10). ----
+// Defaults match the dashboard's METRICS, so an un-configured device behaves the same.
+float phLo = 5.5, phHi = 6.5, phWarn = 0.4;   // pH ideal band + warn margin
+float ecLo = 600, ecHi = 1000, ecWarn = 150;  // EC ideal band (ppm) + warn margin
+float tankCrit = 20, tankWarn = 35;           // tank crit / recover thresholds (%)
+float tankFull = 95;                          // anti-overflow: stop filling at this level (%)
+
+// Drive a pin, mirror its state, reflect it to the cloud, and log the change.
+// The change guard stops chatter and any virtualWrite -> BLYNK_WRITE echo loop.
+void setActuator(uint8_t pin, bool &state, bool on, int vpin,
+                 const char *name, const char *why) {
+  if (state == on) return;
   state = on;
-  Serial.printf("[ACT] %-18s -> %s (remoto)\n", name, on ? "LIGADA" : "DESLIGADA");
+  digitalWrite(pin, on ? HIGH : LOW);
+  Blynk.virtualWrite(vpin, on ? 1 : 0);
+  Serial.printf("[ACT] %-18s -> %s (%s)\n", name, on ? "LIGADA" : "DESLIGADA", why);
 }
 
-// ---- Debug helpers: tag a reading against the dashboard's ideal/warn bands ----
-const char *tagPh(float v) { return (v < 5.1 || v > 6.9) ? "CRITICO"
-                                  : (v < 5.5 || v > 6.5) ? "ALERTA" : "OK"; }
-const char *tagEc(float v) { return (v < 450 || v > 1150) ? "CRITICO"
-                                  : (v < 600 || v > 1000) ? "ALERTA" : "OK"; }
-const char *tagLvl(float v){ return (v < 20) ? "CRITICO" : (v < 35) ? "ALERTA" : "OK"; }
+// ---- Debug helpers: tag a reading against the current limits ----
+const char *tagPh(float v) { return (v < phLo - phWarn || v > phHi + phWarn) ? "CRITICO"
+                                  : (v < phLo || v > phHi) ? "ALERTA" : "OK"; }
+const char *tagEc(float v) { return (v < ecLo - ecWarn || v > ecHi + ecWarn) ? "CRITICO"
+                                  : (v < ecLo || v > ecHi) ? "ALERTA" : "OK"; }
+const char *tagLvl(float v){ return (v < tankCrit) ? "CRITICO" : (v < tankWarn) ? "ALERTA" : "OK"; }
 
-// ---- Actuator handlers: web app / auto-actuation writes V5..V8 ----
-BLYNK_WRITE(V5){ int v=param.asInt(); digitalWrite(PIN_NUTRIENT, v); logAct("Bomba Nutrientes", v, stNutrient); }
-BLYNK_WRITE(V6){ int v=param.asInt(); digitalWrite(PIN_ACID,     v); logAct("Bomba Acido",      v, stAcid); }
-BLYNK_WRITE(V7){ int v=param.asInt(); digitalWrite(PIN_BASE,     v); logAct("Bomba Base",       v, stBase); }
-BLYNK_WRITE(V8){ int v=param.asInt(); digitalWrite(PIN_WATER,    v); logAct("Valvula Agua",     v, stWater); }
+// ---- Device-side auto-actuation (hysteresis: ON at critical, OFF back in the ideal band) ----
+void autoActuate(float ph, float ec, float level) {
+  if      (ph > phHi + phWarn) setActuator(PIN_ACID, stAcid, true,  V6, "Bomba Acido", "auto pH alto");
+  else if (ph <= phHi)         setActuator(PIN_ACID, stAcid, false, V6, "Bomba Acido", "auto pH ok");
 
-// Restore last actuator state from the cloud after a (re)connect
+  if      (ph < phLo - phWarn) setActuator(PIN_BASE, stBase, true,  V7, "Bomba Base", "auto pH baixo");
+  else if (ph >= phLo)         setActuator(PIN_BASE, stBase, false, V7, "Bomba Base", "auto pH ok");
+
+  if      (ec < ecLo - ecWarn) setActuator(PIN_NUTRIENT, stNutrient, true,  V5, "Bomba Nutrientes", "auto EC baixo");
+  else if (ec >= ecLo)         setActuator(PIN_NUTRIENT, stNutrient, false, V5, "Bomba Nutrientes", "auto EC ok");
+
+  // Water valve: refill when low OR dilute when EC is too high, but never overflow the tank.
+  if      (level >= tankFull)       setActuator(PIN_WATER, stWater, false, V8, "Valvula Agua", "auto tanque cheio");
+  else if (level < tankCrit)        setActuator(PIN_WATER, stWater, true,  V8, "Valvula Agua", "auto tanque baixo");
+  else if (ec > ecHi + ecWarn)      setActuator(PIN_WATER, stWater, true,  V8, "Valvula Agua", "auto EC alto (diluir)");
+  else if (level >= tankWarn && ec <= ecHi) setActuator(PIN_WATER, stWater, false, V8, "Valvula Agua", "auto ok");
+}
+
+// ---- Manual override from the app (V5..V8). Auto reclaims control when a value goes critical. ----
+BLYNK_WRITE(V5){ setActuator(PIN_NUTRIENT, stNutrient, param.asInt(), V5, "Bomba Nutrientes", "remoto"); }
+BLYNK_WRITE(V6){ setActuator(PIN_ACID,     stAcid,     param.asInt(), V6, "Bomba Acido",      "remoto"); }
+BLYNK_WRITE(V7){ setActuator(PIN_BASE,     stBase,     param.asInt(), V7, "Bomba Base",       "remoto"); }
+BLYNK_WRITE(V8){ setActuator(PIN_WATER,    stWater,    param.asInt(), V8, "Valvula Agua",     "remoto"); }
+
+// ---- Limits config: the app shares all thresholds as one JSON string on V10. ----
+BLYNK_WRITE(V10){
+  StaticJsonDocument<256> doc;
+  if (deserializeJson(doc, param.asStr())) return;   // bad/empty JSON -> keep current limits
+  phLo     = doc["phLo"]     | phLo;
+  phHi     = doc["phHi"]     | phHi;
+  phWarn   = doc["phWarn"]   | phWarn;
+  ecLo     = doc["ecLo"]     | ecLo;
+  ecHi     = doc["ecHi"]     | ecHi;
+  ecWarn   = doc["ecWarn"]   | ecWarn;
+  tankCrit = doc["tankCrit"] | tankCrit;
+  tankWarn = doc["tankWarn"] | tankWarn;
+  tankFull = doc["tankFull"] | tankFull;
+  Serial.printf("[CFG] limites: pH %.1f-%.1f(+-%.1f) EC %.0f-%.0f(+-%.0f) tank %.0f/%.0f cheio %.0f\n",
+                phLo, phHi, phWarn, ecLo, ecHi, ecWarn, tankCrit, tankWarn, tankFull);
+}
+
+// Restore actuator states + shared limits from the cloud after a (re)connect
 BLYNK_CONNECTED(){
   Serial.println("[NET] Conectado ao Blynk Cloud");
-  Blynk.syncVirtual(V5, V6, V7, V8);
+  Blynk.syncVirtual(V5, V6, V7, V8, V10);
 }
 
 void sendSensors() {
@@ -87,6 +140,8 @@ void sendSensors() {
   Blynk.virtualWrite(V3, ph);
   Blynk.virtualWrite(V4, ppm);
 
+  autoActuate(ph, ppm, level);   // device decides — runs every cycle, with or without the app
+
   Serial.printf("[DATA] T=%.1fC H=%.0f%% | Lvl=%.0f%%(%s) pH=%.2f(%s) EC=%.0fppm(%s) | bombas N%d A%d B%d W%d\n",
                 t, h, level, tagLvl(level), ph, tagPh(ph), ppm, tagEc(ppm),
                 stNutrient, stAcid, stBase, stWater);
@@ -94,7 +149,7 @@ void sendSensors() {
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("\n[BOOT] Geti IoT - dumb I/O (decisoes de controle ficam no app)");
+  Serial.println("\n[BOOT] Geti IoT - controle no dispositivo (limites vem do app via V10)");
   dht.begin();
   analogReadResolution(12);
   pinMode(PIN_NUTRIENT, OUTPUT);

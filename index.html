@@ -246,6 +246,32 @@
   .act-card.on .act-status .pill{background:var(--ok-bg);color:var(--ok);}
   .auto-tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:var(--warn);background:var(--warn-bg);padding:3px 8px;border-radius:999px;margin-left:8px;}
   .act-hint{font-size:12px;color:var(--muted);line-height:1.5;background:#eaf4ee;border-radius:16px;padding:13px 15px;margin-bottom:14px;display:flex;gap:9px;font-weight:500;}
+  /* read-only state badge (replaces the manual toggle) */
+  .act-state{margin-left:auto;flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:7px 13px;border-radius:999px;background:#eef3f0;color:var(--muted);}
+  .act-state::before{content:"";width:8px;height:8px;border-radius:50%;background:#c2cdc7;}
+  .act-state.on{background:var(--ok-bg);color:var(--ok);}
+  .act-state.on::before{background:var(--ok);}
+  /* compact read-only actuator strip on the Dashboard */
+  .act-strip{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:4px;}
+  .act-chip{display:flex;align-items:center;gap:9px;background:var(--white);border:1px solid #eef6f1;border-radius:14px;padding:11px 13px;box-shadow:var(--shadow-sm);transition:.3s;}
+  .act-chip.on{border-color:var(--green-300);}
+  .act-chip .ci{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;font-size:17px;background:#eef3f0;flex:0 0 auto;}
+  .act-chip.on .ci{background:var(--ok-bg);}
+  .act-chip .cn{font-size:12px;font-weight:600;color:var(--ink);line-height:1.2;min-width:0;}
+  .act-chip .cd{margin-left:auto;flex:0 0 auto;width:10px;height:10px;border-radius:50%;background:#c2cdc7;}
+  .act-chip.on .cd{background:var(--ok);box-shadow:0 0 0 3px var(--ok-bg);}
+
+  /* ---------- Settings (limites) ---------- */
+  .set-group{background:var(--white);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow-sm);border:1px solid #eef6f1;}
+  .set-group h4{font-size:14px;font-weight:800;color:var(--green-700);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+  .set-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line);}
+  .set-row:first-of-type{border-top:0;}
+  .set-row label{flex:1;font-size:13px;font-weight:500;color:var(--ink);}
+  .set-row input{width:96px;flex:0 0 auto;text-align:right;font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#f7faf8;color:var(--ink);}
+  .set-row input:focus{outline:none;border-color:var(--green-300);background:#fff;}
+  .set-reset{width:100%;border:1px solid var(--green-300);border-radius:14px;background:var(--white);color:var(--green-700);font-size:14px;font-weight:700;padding:12px;cursor:pointer;transition:.2s;}
+  .set-reset:active{transform:scale(.99);background:var(--ok-bg);}
+  .set-status{text-align:center;font-size:12.5px;font-weight:600;color:var(--ok);min-height:18px;margin-top:10px;}
 
   /* ---------- Footer ---------- */
   .footer{text-align:center;padding:18px 16px 6px;color:var(--muted);}
@@ -353,6 +379,9 @@
         </div>
       </div>
 
+      <div class="section-title" style="margin-top:18px;">Atuadores <span class="when">controlados pelo dispositivo</span></div>
+      <div class="act-strip" id="actStrip"></div>
+
       <div class="footer">
         <div class="fname">HydroSense IoT</div>
         <div class="fteam">Gabrielle Oliveira Santana · Gabriel Sandrini · Igor Murici</div>
@@ -384,8 +413,17 @@
     <!-- ACTUATORS -->
     <section class="view" id="view-actuators" data-screen-label="Atuadores">
       <div class="section-title">Controle de atuadores</div>
-      <div class="act-hint"><span>🤖</span><span>Os atuadores ligam automaticamente quando um parâmetro crítico é detectado. Você também pode acioná-los manualmente — o comando é enviado ao dispositivo via Blynk.</span></div>
+      <div class="act-hint"><span>🤖</span><span>Somente leitura. O <b>dispositivo</b> liga e desliga os atuadores automaticamente quando um parâmetro fica crítico — os limites são definidos na aba <b>Ajustes</b>.</span></div>
       <div id="acts"></div>
+    </section>
+
+    <!-- AJUSTES (limites) -->
+    <section class="view" id="view-settings" data-screen-label="Ajustes">
+      <div class="section-title">Limites de controle</div>
+      <div class="act-hint"><span>⚙️</span><span>Estes limites são enviados ao dispositivo, que decide quando acionar bombas e válvula. As alterações são salvas automaticamente e mudam o comportamento do IoT sem recompilar.</span></div>
+      <div id="settings"></div>
+      <button id="setReset" class="set-reset">↺ Restaurar padrões</button>
+      <div id="setStatus" class="set-status"></div>
     </section>
 
   </main>
@@ -394,7 +432,8 @@
   <nav class="nav" id="nav">
     <button data-view="dashboard" class="active"><span class="ico">📊</span><span class="lab">Dashboard</span><span class="ndot"></span></button>
     <button data-view="charts"><span class="ico">📈</span><span class="lab">Gráficos</span><span class="ndot"></span></button>
-    <button data-view="actuators"><span class="ico">🎛️</span><span class="lab">Atuadores</span><span class="ndot"></span></button>
+    <!-- <button data-view="actuators"><span class="ico">🎛️</span><span class="lab">Atuadores</span><span class="ndot"></span></button> -->
+    <button data-view="settings"><span class="ico">⚙️</span><span class="lab">Ajustes</span><span class="ndot"></span></button>
   </nav>
   </div>
 
@@ -422,7 +461,7 @@ const METRICS = {
   hum:  {name:'Umidade',            icon:'💧', unit:'%',   min:0,  max:100,  ideal:[60,80],     warn:7,   dec:0, value:70},
   // Tank has its own one-sided limits (only "too low" is bad) + custom card, so it
   // doesn't use ideal/warn like the others: crit below `crit`, warn below `warn`.
-  tank: {name:'Nível do Tanque',    unit:'%',   min:0,  max:100,  crit:20, warn:35, value:100},
+  tank: {name:'Nível do Tanque',    unit:'%',   min:0,  max:100,  crit:20, warn:35, full:95, value:100},
 };
 const ORDER = ['ph','ec','temp','hum'];
 const HIST = {ph:[], ec:[]};
@@ -434,7 +473,6 @@ function statusOf(m){
   if(v >= lo - m.warn && v <= hi + m.warn) return 'warn';
   return 'crit';
 }
-function dirOf(m){ const [lo,hi]=m.ideal; return m.value<lo ? 'low' : m.value>hi ? 'high' : 'in'; }
 const LABEL = {ok:'OK', warn:'Atenção', crit:'Crítico'};
 
 /* ============ BUILD CARDS ============ */
@@ -452,7 +490,7 @@ ORDER.forEach(key=>{
           <span class="m-name">${m.name}</span>
           <span class="badge b-ok" id="badge-${key}"><span class="bd"></span>OK</span>
         </div>
-        <div class="m-ideal">Faixa ideal: ${m.ideal[0]}${m.unit?' '+m.unit:''} – ${m.ideal[1]}${m.unit?' '+m.unit:''}</div>
+        <div class="m-ideal" id="ideal-${key}">Faixa ideal: ${m.ideal[0]}${m.unit?' '+m.unit:''} – ${m.ideal[1]}${m.unit?' '+m.unit:''}</div>
         <div class="m-valwrap">
           <span class="m-val" id="val-${key}">—</span>
           <span class="m-unit">${m.unit}</span>
@@ -496,6 +534,11 @@ function renderMetric(key){
   if(Math.abs(t) < (m.dec===0?0.5:0.01)){ tEl.textContent='→'; tEl.style.color='#9bb3a7'; }
   else if(t>0){ tEl.textContent='▲ '+Math.abs(t).toFixed(m.dec); tEl.style.color='var(--muted)'; }
   else { tEl.textContent='▼ '+Math.abs(t).toFixed(m.dec); tEl.style.color='var(--muted)'; }
+  // reflect current limits: ideal-range text + colored band track
+  const ideal = document.getElementById('ideal-'+key);
+  if(ideal) ideal.textContent = `Faixa ideal: ${m.ideal[0]}${m.unit?' '+m.unit:''} – ${m.ideal[1]}${m.unit?' '+m.unit:''}`;
+  const band = document.getElementById('band-'+key);
+  if(band){ band.style.left=((m.ideal[0]-m.min)/span*100)+'%'; band.style.width=((m.ideal[1]-m.ideal[0])/span*100)+'%'; }
 }
 
 function renderTank(){
@@ -672,23 +715,38 @@ Object.entries(ACT).forEach(([key,a])=>{
         <div class="act-name">${a.name}</div>
         <div class="act-desc">${a.desc}<span class="auto-tag" id="auto-${key}" style="display:none;">⚡ Auto</span></div>
       </div>
-      <button class="toggle" id="toggle-${key}" aria-label="Ligar ${a.name}"></button>
+      <span class="act-state" id="state-${key}">Desligada</span>
     </div>
     <div class="act-status"><span>⏱️</span><span id="txt-${key}">Desligada</span><span class="pill" id="time-${key}">—</span></div>
   `;
   actsEl.appendChild(el);
-  el.querySelector('#toggle-'+key).addEventListener('click',()=>writeActuator(key, !ACT[key].on, false));
 });
+
+/* compact read-only strip on the Dashboard */
+function buildActStrip(){
+  document.getElementById('actStrip').innerHTML = Object.entries(ACT).map(([key,a])=>`
+    <div class="act-chip" id="chip-${key}">
+      <div class="ci">${a.icon}</div>
+      <div class="cn">${a.name}</div>
+      <div class="cd"></div>
+    </div>`).join('');
+}
 
 function renderActuator(key){
   const a=ACT[key];
-  document.getElementById('toggle-'+key).classList.toggle('on', a.on);
+  // read-only state badge (Atuadores tab)
+  const badge=document.getElementById('state-'+key);
+  badge.classList.toggle('on', a.on);
+  badge.textContent = a.on ? 'Ligada' : 'Desligada';
   document.getElementById('act-'+key).classList.toggle('on', a.on);
-  document.getElementById('auto-'+key).style.display = (a.on && a.auto)?'inline-flex':'none';
-  document.getElementById('txt-'+key).textContent = a.on ? (a.auto?'Ligada automaticamente':'Ligada (manual)') : 'Desligada';
+  document.getElementById('auto-'+key).style.display = 'none';  // device decides; app can't tell auto from manual
+  document.getElementById('txt-'+key).textContent = a.on ? 'Ligada' : 'Desligada';
   const pill=document.getElementById('time-'+key);
   if(a.on){ const s=Math.floor((Date.now()-a.since)/1000); pill.textContent=fmtDur(s); }
   else pill.textContent='—';
+  // compact strip (Dashboard tab)
+  const chip=document.getElementById('chip-'+key);
+  if(chip) chip.classList.toggle('on', a.on);
 }
 function fmtDur(s){
   if(s<60) return s+'s';
@@ -697,16 +755,7 @@ function fmtDur(s){
   const h=Math.floor(m/60); return `${h}h ${m%60}m`;
 }
 
-/* write actuator state to Blynk (manual or auto) */
-async function writeActuator(key,on,auto=false){
-  const a=ACT[key];
-  if(on && !a.on){ a.on=true; a.since=Date.now(); }
-  else if(!on && a.on){ a.on=false; a.since=0; }
-  a.auto = on ? auto : false;
-  renderActuator(key);
-  try{ await fetch(`${BLYNK}/update?token=${TOKEN}&${a.pin}=${on?1:0}`); }catch(e){}
-}
-/* reflect real pin state read from Blynk poll */
+/* reflect real pin state read from Blynk poll (the device is the only writer) */
 function syncActuatorFromPin(key,val){
   if(isNaN(val)) return;
   const on=val>=1, a=ACT[key];
@@ -714,18 +763,101 @@ function syncActuatorFromPin(key,val){
   else if(!on && a.on){ a.on=false; a.since=0; a.auto=false; }
   renderActuator(key);
 }
-/* auto-actuation helper: drive a pump/valve toward the desired state */
-function auto(key,want){
-  const a=ACT[key];
-  if(want && !a.on) writeActuator(key,true,true);
-  else if(a.auto && !want) writeActuator(key,false);
+/* ============ CONTROL LIMITS (shared with the device via V10 JSON) ============
+   The DEVICE decides when to actuate; the app only edits and shares the limits. */
+const LIMIT_PIN = 'V10';
+let limitsSeeded = false;
+
+const LIMIT_FIELDS = [
+  {id:'phLo',     label:'pH mínimo ideal',          group:'pH',     step:'0.1', get:()=>METRICS.ph.ideal[0], set:v=>METRICS.ph.ideal[0]=v},
+  {id:'phHi',     label:'pH máximo ideal',          group:'pH',     step:'0.1', get:()=>METRICS.ph.ideal[1], set:v=>METRICS.ph.ideal[1]=v},
+  {id:'phWarn',   label:'pH margem de alerta',      group:'pH',     step:'0.1', get:()=>METRICS.ph.warn,     set:v=>METRICS.ph.warn=v},
+  {id:'ecLo',     label:'EC mínimo ideal (ppm)',    group:'EC',     step:'10',  get:()=>METRICS.ec.ideal[0], set:v=>METRICS.ec.ideal[0]=v},
+  {id:'ecHi',     label:'EC máximo ideal (ppm)',    group:'EC',     step:'10',  get:()=>METRICS.ec.ideal[1], set:v=>METRICS.ec.ideal[1]=v},
+  {id:'ecWarn',   label:'EC margem de alerta (ppm)',group:'EC',     step:'10',  get:()=>METRICS.ec.warn,     set:v=>METRICS.ec.warn=v},
+  {id:'tankCrit', label:'Nível crítico (%)',        group:'Tanque', step:'1',   get:()=>METRICS.tank.crit,   set:v=>METRICS.tank.crit=v},
+  {id:'tankWarn', label:'Nível de alerta (%)',      group:'Tanque', step:'1',   get:()=>METRICS.tank.warn,   set:v=>METRICS.tank.warn=v},
+  {id:'tankFull', label:'Nível máximo / anti-transbordo (%)', group:'Tanque', step:'1', get:()=>METRICS.tank.full, set:v=>METRICS.tank.full=v},
+];
+
+/* current limits -> plain object for the JSON payload (keys match the firmware) */
+function limitsToJSON(){
+  return {
+    phLo:METRICS.ph.ideal[0], phHi:METRICS.ph.ideal[1], phWarn:METRICS.ph.warn,
+    ecLo:METRICS.ec.ideal[0], ecHi:METRICS.ec.ideal[1], ecWarn:METRICS.ec.warn,
+    tankCrit:METRICS.tank.crit, tankWarn:METRICS.tank.warn, tankFull:METRICS.tank.full,
+  };
 }
-function applyAutoActuation(){
-  const ph=statusOf(METRICS.ph), ec=statusOf(METRICS.ec);
-  auto('acid',     ph==='crit' && dirOf(METRICS.ph)==='high');  // pH alto demais → ácido
-  auto('base',     ph==='crit' && dirOf(METRICS.ph)==='low');   // pH baixo demais → base
-  auto('nutrient', ec==='crit' && dirOf(METRICS.ec)==='low');   // EC baixo → nutrientes
-  auto('water',    Math.round(METRICS.tank.value) < METRICS.tank.crit);  // tanque crítico → repor água
+/* incoming JSON (from the device config pin) -> METRICS */
+function applyLimits(o){
+  if(!o) return;
+  if(o.phLo!=null)     METRICS.ph.ideal[0]=+o.phLo;
+  if(o.phHi!=null)     METRICS.ph.ideal[1]=+o.phHi;
+  if(o.phWarn!=null)   METRICS.ph.warn=+o.phWarn;
+  if(o.ecLo!=null)     METRICS.ec.ideal[0]=+o.ecLo;
+  if(o.ecHi!=null)     METRICS.ec.ideal[1]=+o.ecHi;
+  if(o.ecWarn!=null)   METRICS.ec.warn=+o.ecWarn;
+  if(o.tankCrit!=null) METRICS.tank.crit=+o.tankCrit;
+  if(o.tankWarn!=null) METRICS.tank.warn=+o.tankWarn;
+  if(o.tankFull!=null) METRICS.tank.full=+o.tankFull;
+}
+async function pushLimits(){
+  try{ await fetch(`${BLYNK}/update?token=${TOKEN}&${LIMIT_PIN}=${encodeURIComponent(JSON.stringify(limitsToJSON()))}`); }catch(e){}
+}
+
+/* ---- Settings tab (Ajustes) ---- */
+function buildSettings(){
+  const groups = {};
+  LIMIT_FIELDS.forEach(f=>{ (groups[f.group] ||= []).push(f); });
+  const icon = {'pH':'🧪','EC':'⚡','Tanque':'🪣'};
+  document.getElementById('settings').innerHTML = Object.entries(groups).map(([g,fields])=>`
+    <div class="set-group">
+      <h4>${icon[g]||''} ${g}</h4>
+      ${fields.map(f=>`<div class="set-row"><label for="set-${f.id}">${f.label}</label>
+        <input id="set-${f.id}" type="number" step="${f.step}" inputmode="decimal"></div>`).join('')}
+    </div>`).join('');
+}
+function renderSettings(){
+  LIMIT_FIELDS.forEach(f=>{ const el=document.getElementById('set-'+f.id); if(el) el.value=f.get(); });
+}
+/* fetch V10 once and (re)populate the form — called when opening the Ajustes tab */
+async function loadLimits(){
+  try{
+    const r = await fetch(`${BLYNK}/getAll?token=${TOKEN}`);
+    if(!r.ok) return;
+    const d = await r.json();
+    const raw = d[LIMIT_PIN] ?? d[LIMIT_PIN.toLowerCase()];
+    if(raw){ applyLimits(JSON.parse(raw)); }
+    renderSettings();
+  }catch(e){}
+}
+
+/* autosave: editing a field reflects in the Dashboard live; the V10 write is debounced */
+let autosaveTimer = null;
+function applyFormToMetrics(){
+  LIMIT_FIELDS.forEach(f=>{ const v=parseFloat(document.getElementById('set-'+f.id).value); if(!isNaN(v)) f.set(v); });
+}
+function scheduleAutosave(){
+  applyFormToMetrics();
+  ORDER.forEach(k=>renderMetric(k)); renderTank(); updateBanner();   // live reflection
+  clearTimeout(autosaveTimer);
+  const s=document.getElementById('setStatus'); if(s) s.textContent='salvando…';
+  autosaveTimer = setTimeout(saveLimits, 600);
+}
+async function saveLimits(){
+  await pushLimits();
+  limitsSeeded = true;
+  const s=document.getElementById('setStatus');
+  if(s){ s.textContent='✓ salvo automaticamente'; setTimeout(()=>{ if(s.textContent==='✓ salvo automaticamente') s.textContent=''; }, 2000); }
+}
+/* reset every limit back to the firmware-matching defaults, then share + reflect */
+async function resetLimits(){
+  applyLimits(DEFAULT_LIMITS);
+  renderSettings();
+  ORDER.forEach(k=>renderMetric(k)); renderTank(); updateBanner();
+  await pushLimits(); limitsSeeded = true;
+  const s=document.getElementById('setStatus');
+  if(s){ s.textContent='✓ padrões restaurados'; setTimeout(()=>{ if(s.textContent==='✓ padrões restaurados') s.textContent=''; }, 2000); }
 }
 
 /* ============ NAV ============ */
@@ -738,13 +870,13 @@ document.getElementById('nav').addEventListener('click',e=>{
   document.getElementById('view-'+v).classList.add('active');
   document.getElementById('screen').scrollTop=0;
   if(v==='charts') drawChart();
+  if(v==='settings') loadLimits();
 });
 
 /* ============ RENDER LOOP ============ */
 function refresh(){
   ORDER.forEach(k=>renderMetric(k));
   renderTank();
-  applyAutoActuation();
   updateBanner();
   if(document.getElementById('view-charts').classList.contains('active')) drawChart();
 }
@@ -779,6 +911,16 @@ async function poll(){
     });
     const tv = num(SENSOR_PIN.tank);
     if(!isNaN(tv)) METRICS.tank.value = tv;
+
+    // shared control limits (V10): apply once on first poll (so card thresholds are right),
+    // then never again — the Ajustes tab owns loading/saving from here on.
+    if(!limitsSeeded){
+      const rawLimits = d[LIMIT_PIN] ?? d[LIMIT_PIN.toLowerCase()];
+      if(rawLimits){ try{ applyLimits(JSON.parse(rawLimits)); }catch(e){} }
+      else { pushLimits(); }            // seed Blynk with current defaults if empty
+      limitsSeeded = true;
+      renderSettings();
+    }
 
     // history (last 10)
     HIST.ph.push(METRICS.ph.value); if(HIST.ph.length>10) HIST.ph.shift();
@@ -820,7 +962,13 @@ function ensureToken(){
 /* ============ BOOT ============ */
 ORDER.forEach(k=>renderMetric(k));
 renderTank();
+buildActStrip();
 Object.keys(ACT).forEach(k=>renderActuator(k));
+buildSettings();
+renderSettings();
+const DEFAULT_LIMITS = limitsToJSON();   // snapshot before any V10 override mutates METRICS
+document.getElementById('settings').addEventListener('input', scheduleAutosave);
+document.getElementById('setReset').addEventListener('click', resetLimits);
 updateBanner();
 drawChart();
 
