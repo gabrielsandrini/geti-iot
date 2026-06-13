@@ -1,0 +1,19 @@
+# Build artifacts
+build/
+*.bin
+*.elf
+*.hex
+*.map
+
+# IDE / OS
+.vscode/
+.DS_Store
+
+# Secrets — never commit real Blynk credentials
+.env
+.env.*
+secrets.h
+arduino_secrets.h
+env.js
+*.secret
+*.local

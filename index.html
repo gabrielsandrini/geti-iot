@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a3a2a">
+<title>HydroSense IoT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --green-900:#1a3a2a;
+    --green-700:#2d6a4f;
+    --green-300:#95d5b2;
+    --bg:#f0faf4;
+    --white:#ffffff;
+
+    --ok:#2d6a4f;
+    --ok-bg:#e6f4ec;
+    --warn:#c6871a;
+    --warn-bg:#fdf3e0;
+    --crit:#d14444;
+    --crit-bg:#fdecec;
+
+    --ink:#16231d;
+    --muted:#6c8579;
+    --line:#e2efe8;
+
+    --shadow-sm:0 1px 3px rgba(26,58,42,.06), 0 4px 14px rgba(26,58,42,.05);
+    --shadow-md:0 4px 18px rgba(26,58,42,.10), 0 10px 34px rgba(26,58,42,.08);
+    --radius:22px;
+
+    --header-h:60px;
+    --nav-h:72px;
+  }
+
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Inter',system-ui,-apple-system,sans-serif;
+    background: radial-gradient(140% 120% at 80% -10%, #1f4632 0%, #16291f 55%, #0e1d16 100%);
+    color:var(--ink);
+    min-height:100dvh;
+    overflow:hidden;
+  }
+
+  /* ---------- Studio layout (centers the phone shell) ---------- */
+  .studio{
+    display:flex;align-items:center;justify-content:center;
+    width:100%;height:100dvh;padding:24px;box-sizing:border-box;
+  }
+  @media(max-width:880px){
+    body{overflow:auto;}
+    .studio{height:auto;min-height:100dvh;padding:18px 14px 34px;}
+  }
+
+  /* ---------- Phone shell ---------- */
+  .shell{
+    position:relative;
+    width:100%;
+    max-width:392px;
+    flex:0 0 auto;
+    height:min(852px, calc(100dvh - 48px));
+    background:var(--bg);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    border-radius:42px;
+    box-shadow:0 30px 80px rgba(0,0,0,.5), 0 0 0 11px #0c1812, 0 0 0 13px #20382c;
+  }
+  @media(max-width:880px){
+    .shell{height:min(852px, calc(100dvh - 40px));}
+  }
+
+  /* ---------- Header ---------- */
+  .header{
+    flex:0 0 auto;
+    background:linear-gradient(180deg,var(--green-900),#173324);
+    color:#eaf7ef;
+    padding:calc(env(safe-area-inset-top) + 12px) 20px 14px;
+    display:flex;
+    align-items:center;
+    gap:11px;
+    z-index:30;
+    box-shadow:0 6px 22px rgba(11,24,18,.28);
+  }
+  .leaf{
+    width:38px;height:38px;border-radius:12px;
+    background:linear-gradient(150deg,var(--green-700),var(--green-300));
+    display:grid;place-items:center;font-size:20px;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);
+  }
+  .header h1{font-size:18px;font-weight:700;margin:0;letter-spacing:-.2px;line-height:1.1;}
+  .header .sub{font-size:11px;font-weight:500;color:var(--green-300);margin-top:2px;letter-spacing:.3px;}
+  .live{
+    margin-left:auto;display:flex;align-items:center;gap:6px;
+    font-size:11px;font-weight:600;color:#cdeede;
+    background:rgba(149,213,178,.14);padding:6px 11px;border-radius:999px;white-space:nowrap;
+  }
+  .live.off{color:#f3c9c9;background:rgba(209,68,68,.16);}
+  .live .dot{width:7px;height:7px;border-radius:50%;background:#5fe39b;box-shadow:0 0 0 0 rgba(95,227,155,.6);animation:pulse 2s infinite;}
+  .live.off .dot{background:#d14444;animation:none;box-shadow:none;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(95,227,155,.55);}70%{box-shadow:0 0 0 7px rgba(95,227,155,0);}100%{box-shadow:0 0 0 0 rgba(95,227,155,0);}}
+
+  /* ---------- Notification banner ---------- */
+  .banner-wrap{position:relative;z-index:20;}
+  .banner{display:none;margin:0;}
+  .banner.show{display:block;animation:bnr .3s ease both;}
+  @keyframes bnr{from{transform:translateY(-6px);}to{transform:none;}}
+  .banner-inner{
+    display:flex;align-items:center;gap:10px;
+    margin:10px 14px 0;padding:12px 14px;border-radius:16px;
+    font-size:13px;font-weight:600;line-height:1.3;
+    box-shadow:var(--shadow-sm);
+  }
+  .banner.warn .banner-inner{background:var(--warn-bg);color:#8a5e10;border:1px solid #f1dcae;}
+  .banner.crit .banner-inner{background:var(--crit-bg);color:#a82f2f;border:1px solid #f3c9c9;animation:shake .5s;}
+  .banner .bicon{font-size:16px;flex:0 0 auto;}
+  @keyframes shake{0%,100%{transform:translateX(0);}20%,60%{transform:translateX(-4px);}40%,80%{transform:translateX(4px);}}
+
+  /* ---------- Scroll area ---------- */
+  .screen{
+    flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding:14px 14px calc(var(--nav-h) + env(safe-area-inset-bottom) + 18px);
+  }
+  .screen::-webkit-scrollbar{width:0;}
+  .view{display:none;}
+  .view.active{display:block;opacity:1;animation:fade .35s ease both;}
+  @media(prefers-reduced-motion:reduce){.view.active{animation:none;}}
+  @keyframes fade{from{transform:translateY(8px);}to{transform:none;}}
+
+  .section-title{
+    font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
+    color:var(--muted);margin:6px 4px 12px;display:flex;align-items:center;gap:8px;
+  }
+  .section-title .when{margin-left:auto;font-weight:600;letter-spacing:.2px;text-transform:none;font-size:11px;color:#9bb3a7;}
+
+  /* ---------- Metric card ---------- */
+  .card{
+    background:var(--white);border-radius:var(--radius);padding:16px;margin-bottom:13px;
+    box-shadow:var(--shadow-sm);border:1px solid #eef6f1;
+    position:relative;overflow:hidden;
+    transition:box-shadow .3s, border-color .3s, background .3s;
+  }
+  .card.s-warn{border-color:#f4e3c1;background:linear-gradient(180deg,#fffdf8,#fff);}
+  .card.s-crit{border-color:#f4cccc;background:linear-gradient(180deg,#fff8f8,#fff);box-shadow:0 6px 22px rgba(209,68,68,.14);}
+  .card-top{display:flex;align-items:flex-start;gap:13px;}
+  .m-icon{
+    width:52px;height:52px;flex:0 0 auto;border-radius:15px;display:grid;place-items:center;
+    font-size:25px;background:var(--ok-bg);transition:background .3s;
+  }
+  .card.s-warn .m-icon{background:var(--warn-bg);}
+  .card.s-crit .m-icon{background:var(--crit-bg);}
+  .m-meta{flex:1 1 auto;min-width:0;}
+  .m-name{font-size:14px;font-weight:600;color:var(--ink);}
+  .m-ideal{font-size:11.5px;color:var(--muted);margin-top:2px;font-weight:500;}
+  .m-valwrap{display:flex;align-items:baseline;gap:4px;margin-top:9px;}
+  .m-val{font-size:30px;font-weight:800;letter-spacing:-1px;line-height:1;font-variant-numeric:tabular-nums;}
+  .m-unit{font-size:13px;font-weight:600;color:var(--muted);}
+  .m-trend{margin-left:auto;align-self:center;font-size:11px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:3px;}
+
+  .badge{
+    display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;
+    padding:5px 10px;border-radius:999px;flex:0 0 auto;letter-spacing:.2px;
+  }
+  .badge .bd{width:6px;height:6px;border-radius:50%;}
+  .b-ok{background:var(--ok-bg);color:var(--ok);} .b-ok .bd{background:var(--ok);}
+  .b-warn{background:var(--warn-bg);color:#a06a10;} .b-warn .bd{background:var(--warn);}
+  .b-crit{background:var(--crit-bg);color:var(--crit);} .b-crit .bd{background:var(--crit);}
+
+  /* progress track with ideal band */
+  .track{position:relative;height:9px;border-radius:999px;background:#eef3f0;margin-top:15px;overflow:hidden;}
+  .track .band{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(45deg,rgba(45,106,79,.16),rgba(45,106,79,.16) 5px,rgba(45,106,79,.08) 5px,rgba(45,106,79,.08) 10px);}
+  .track .fill{position:absolute;top:0;left:0;bottom:0;border-radius:999px;transition:width .8s cubic-bezier(.4,0,.2,1), background .3s;}
+  .fill.s-ok{background:linear-gradient(90deg,var(--green-700),var(--green-300));}
+  .fill.s-warn{background:linear-gradient(90deg,#d9971f,#f0c66a);}
+  .fill.s-crit{background:linear-gradient(90deg,#c43d3d,#e88);}
+  .track .thumb{position:absolute;top:50%;width:4px;height:17px;border-radius:3px;background:#16231d;transform:translate(-50%,-50%);box-shadow:0 0 0 3px #fff;transition:left .8s cubic-bezier(.4,0,.2,1);}
+  .scale{display:flex;justify-content:space-between;font-size:10px;color:#a6bdb1;margin-top:7px;font-weight:600;}
+
+  /* ---------- Tank card ---------- */
+  .tank-card{display:flex;gap:16px;align-items:center;}
+  .tank-info{flex:1 1 auto;min-width:0;}
+  .tank-vis{
+    position:relative;width:86px;height:118px;flex:0 0 auto;
+    border-radius:14px 14px 16px 16px;background:#eef3f0;
+    border:3px solid #d7e6dd;overflow:hidden;
+    box-shadow:inset 0 2px 6px rgba(0,0,0,.06);
+  }
+  .water{
+    position:absolute;left:0;right:0;bottom:0;
+    background:linear-gradient(180deg,#7cc9a4,#2d6a4f);
+    transition:height 1.4s cubic-bezier(.4,0,.2,1), background .4s;
+  }
+  .water.low{background:linear-gradient(180deg,#e88,#c43d3d);}
+  .water::before,.water::after{
+    content:"";position:absolute;left:-50%;width:200%;height:14px;top:-9px;border-radius:45%;
+  }
+  .water::before{background:rgba(255,255,255,.35);animation:wave 5s linear infinite;}
+  .water::after{background:rgba(255,255,255,.18);animation:wave 7s linear infinite reverse;top:-7px;}
+  @keyframes wave{from{transform:translateX(0) rotate(0);}to{transform:translateX(25%) rotate(360deg);}}
+  .tank-pct{position:absolute;inset:0;display:grid;place-items:center;font-size:21px;font-weight:800;color:#0f2419;text-shadow:0 1px 2px rgba(255,255,255,.5);mix-blend-mode:normal;}
+  .tank-ticks{position:absolute;right:5px;top:8px;bottom:8px;display:flex;flex-direction:column;justify-content:space-between;}
+  .tank-ticks span{width:7px;height:2px;background:rgba(255,255,255,.5);border-radius:2px;}
+
+  /* ---------- Charts ---------- */
+  .seg{
+    display:flex;gap:6px;background:#e6f0ea;padding:5px;border-radius:14px;margin-bottom:16px;
+  }
+  .seg button{
+    flex:1;border:0;background:transparent;color:var(--muted);font-family:inherit;
+    font-size:13px;font-weight:600;padding:11px 8px;border-radius:10px;cursor:pointer;
+    min-height:44px;transition:.2s;display:flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .seg button.active{background:var(--white);color:var(--green-900);box-shadow:var(--shadow-sm);}
+  .chart-card{background:var(--white);border-radius:var(--radius);padding:18px 14px 14px;box-shadow:var(--shadow-sm);border:1px solid #eef6f1;margin-bottom:14px;}
+  .chart-head{display:flex;align-items:center;justify-content:space-between;margin:0 4px 6px;}
+  .chart-head .ttl{font-size:14px;font-weight:700;}
+  .legend{display:flex;gap:14px;justify-content:center;margin-top:6px;font-size:12px;font-weight:600;color:var(--muted);}
+  .legend span{display:flex;align-items:center;gap:6px;}
+  .legend i{width:14px;height:3px;border-radius:2px;display:inline-block;}
+  .stat-row{display:flex;gap:11px;margin-bottom:14px;}
+  .stat{flex:1;background:var(--white);border-radius:18px;padding:14px;box-shadow:var(--shadow-sm);border:1px solid #eef6f1;}
+  .stat .lbl{font-size:11px;color:var(--muted);font-weight:600;}
+  .stat .v{font-size:22px;font-weight:800;margin-top:4px;letter-spacing:-.5px;font-variant-numeric:tabular-nums;}
+  .stat .v small{font-size:12px;font-weight:600;color:var(--muted);}
+
+  /* ---------- Actuators ---------- */
+  .act-card{background:var(--white);border-radius:var(--radius);padding:18px;margin-bottom:14px;box-shadow:var(--shadow-sm);border:1px solid #eef6f1;transition:.3s;}
+  .act-card.on{border-color:var(--green-300);box-shadow:0 6px 22px rgba(45,106,79,.15);}
+  .act-top{display:flex;align-items:center;gap:13px;}
+  .act-icon{width:50px;height:50px;border-radius:15px;display:grid;place-items:center;font-size:24px;background:#eef3f0;transition:.3s;}
+  .act-card.on .act-icon{background:var(--ok-bg);}
+  .act-name{font-size:15px;font-weight:700;}
+  .act-desc{font-size:12px;color:var(--muted);margin-top:2px;font-weight:500;}
+  .toggle{
+    margin-left:auto;flex:0 0 auto;width:64px;height:36px;border-radius:999px;background:#d4e0da;
+    position:relative;cursor:pointer;transition:background .3s;border:0;padding:0;
+  }
+  .toggle::after{content:"";position:absolute;top:3px;left:3px;width:30px;height:30px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.18);transition:transform .28s cubic-bezier(.4,0,.2,1);}
+  .toggle.on{background:var(--green-700);}
+  .toggle.on::after{transform:translateX(28px);}
+  .act-status{display:flex;align-items:center;gap:8px;margin-top:15px;padding-top:14px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted);font-weight:500;}
+  .act-status .pill{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums;padding:5px 11px;border-radius:999px;font-size:12px;background:#eef3f0;color:var(--muted);}
+  .act-card.on .act-status .pill{background:var(--ok-bg);color:var(--ok);}
+  .auto-tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:var(--warn);background:var(--warn-bg);padding:3px 8px;border-radius:999px;margin-left:8px;}
+  .act-hint{font-size:12px;color:var(--muted);line-height:1.5;background:#eaf4ee;border-radius:16px;padding:13px 15px;margin-bottom:14px;display:flex;gap:9px;font-weight:500;}
+
+  /* ---------- Footer ---------- */
+  .footer{text-align:center;padding:18px 16px 6px;color:var(--muted);}
+  .footer .fname{font-size:13px;font-weight:800;color:var(--green-700);letter-spacing:.2px;}
+  .footer .fteam{font-size:11px;margin-top:5px;line-height:1.5;}
+
+  /* ---------- Bottom nav ---------- */
+  .nav{
+    position:absolute;left:0;right:0;bottom:0;z-index:40;
+    background:rgba(255,255,255,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border-top:1px solid var(--line);
+    display:flex;
+    padding:8px 8px calc(env(safe-area-inset-bottom) + 8px);
+    box-shadow:0 -4px 24px rgba(26,58,42,.07);
+  }
+  .nav button{
+    flex:1;border:0;background:transparent;font-family:inherit;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    padding:8px 4px;min-height:48px;border-radius:14px;color:var(--muted);transition:.2s;
+  }
+  .nav button .ico{font-size:21px;line-height:1;transition:transform .2s;}
+  .nav button .lab{font-size:10.5px;font-weight:700;letter-spacing:.2px;}
+  .nav button.active{color:var(--green-700);}
+  .nav button.active .ico{transform:translateY(-1px) scale(1.08);}
+  .nav button:active{background:#eef3f0;}
+  .nav button .ndot{width:5px;height:5px;border-radius:50%;background:transparent;margin-top:1px;}
+  .nav button.active .ndot{background:var(--green-700);}
+
+  /* ---------- Token overlay ---------- */
+  .token-ov{
+    position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:22px;
+    background:rgba(8,18,13,.62);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  }
+  .token-box{
+    width:100%;max-width:360px;background:var(--white);border-radius:24px;padding:24px 22px;
+    box-shadow:0 30px 80px rgba(0,0,0,.5);
+  }
+  .token-box h3{margin:0 0 6px;font-size:18px;color:var(--green-900);display:flex;align-items:center;gap:8px;}
+  .token-box p{margin:0 0 16px;font-size:13px;color:var(--muted);line-height:1.5;}
+  .token-box input{
+    width:100%;border:1.5px solid var(--line);border-radius:13px;padding:13px 14px;font-family:inherit;
+    font-size:14px;color:var(--ink);margin-bottom:12px;outline:none;
+  }
+  .token-box input:focus{border-color:var(--green-300);}
+  .token-box button{
+    width:100%;border:0;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;
+    background:linear-gradient(135deg,var(--green-700),#1f5840);color:#eaf7ef;
+    padding:14px;border-radius:14px;min-height:50px;box-shadow:0 6px 18px rgba(45,106,79,.32);
+  }
+  .token-box button:active{transform:scale(.98);}
+</style>
+</head>
+<body>
+<div class="studio">
+
+  <div class="shell" data-screen-label="HydroSense App">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="leaf">🌿</div>
+    <div>
+      <h1>HydroSense</h1>
+      <div class="sub">MONITORAMENTO HIDROPÔNICO</div>
+    </div>
+    <div class="live" id="live"><span class="dot"></span> Conectando…</div>
+  </header>
+
+  <!-- BANNER -->
+  <div class="banner-wrap">
+    <div class="banner" id="banner">
+      <div class="banner-inner"><span class="bicon" id="bIcon">⚠️</span><span id="bText"></span></div>
+    </div>
+  </div>
+
+  <!-- SCROLL -->
+  <main class="screen" id="screen">
+
+    <!-- DASHBOARD -->
+    <section class="view active" id="view-dashboard" data-screen-label="Dashboard">
+      <div class="section-title">Leituras dos sensores <span class="when" id="updAt">aguardando dados…</span></div>
+      <div id="cards"></div>
+
+      <!-- Tank -->
+      <div class="card" id="tankCard">
+        <div class="card-top" style="margin-bottom:2px;">
+          <div class="m-icon" id="tankIcon">🪣</div>
+          <div class="m-meta">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="m-name">Nível do Tanque</span>
+              <span class="badge b-ok" id="tankBadge"><span class="bd"></span>OK</span>
+            </div>
+            <div class="m-ideal">Reservatório de solução nutritiva</div>
+          </div>
+        </div>
+        <div class="tank-card" style="margin-top:8px;">
+          <div class="tank-info">
+            <div class="m-valwrap"><span class="m-val" id="tankVal">100</span><span class="m-unit">%</span></div>
+            <div class="m-ideal" id="tankNote" style="margin-top:8px;line-height:1.5;">Capacidade dentro do esperado. Alerta crítico abaixo de 20%.</div>
+          </div>
+          <div class="tank-vis">
+            <div class="water" id="water" style="height:100%;"></div>
+            <div class="tank-ticks"><span></span><span></span><span></span><span></span></div>
+            <div class="tank-pct" id="tankPct">100%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div class="fname">HydroSense IoT</div>
+        <div class="fteam">Gabrielle Oliveira Santana · Gabriel Sandrini · Igor Murici</div>
+      </div>
+    </section>
+
+    <!-- CHARTS -->
+    <section class="view" id="view-charts" data-screen-label="Gráficos">
+      <div class="section-title">Histórico · últimas 10 leituras</div>
+      <div class="seg" id="chartSeg">
+        <button data-sensor="ph" class="active">🧪 pH</button>
+        <button data-sensor="ec">⚡ EC</button>
+        <button data-sensor="both">Ambos</button>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat"><div class="lbl">Atual</div><div class="v" id="cStatNow">—</div></div>
+        <div class="stat"><div class="lbl">Média (10)</div><div class="v" id="cStatAvg">—</div></div>
+        <div class="stat"><div class="lbl">Variação</div><div class="v" id="cStatDelta">—</div></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-head"><span class="ttl" id="chartTtl">pH</span><span class="m-ideal" id="chartRange"></span></div>
+        <svg id="chart" viewBox="0 0 320 200" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;"></svg>
+        <div class="legend" id="legend"></div>
+      </div>
+    </section>
+
+    <!-- ACTUATORS -->
+    <section class="view" id="view-actuators" data-screen-label="Atuadores">
+      <div class="section-title">Controle de atuadores</div>
+      <div class="act-hint"><span>🤖</span><span>Os atuadores ligam automaticamente quando um parâmetro crítico é detectado. Você também pode acioná-los manualmente — o comando é enviado ao dispositivo via Blynk.</span></div>
+      <div id="acts"></div>
+    </section>
+
+  </main>
+
+  <!-- NAV -->
+  <nav class="nav" id="nav">
+    <button data-view="dashboard" class="active"><span class="ico">📊</span><span class="lab">Dashboard</span><span class="ndot"></span></button>
+    <button data-view="charts"><span class="ico">📈</span><span class="lab">Gráficos</span><span class="ndot"></span></button>
+    <button data-view="actuators"><span class="ico">🎛️</span><span class="lab">Atuadores</span><span class="ndot"></span></button>
+  </nav>
+  </div>
+
+</div>
+
+<!-- Local token config (gitignored). Copy env.example.js -> env.js and paste your token. -->
+<script src="env.js" onerror="/* env.js is optional; falls back to URL/localStorage */"></script>
+<script>
+/* ============ BLYNK CONFIG ============ */
+const BLYNK = 'https://blynk.cloud/external/api';
+const ENV_TOKEN = (typeof window.BLYNK_TOKEN === 'string' && window.BLYNK_TOKEN !== 'YourAuthTokenHere')
+          ? window.BLYNK_TOKEN : '';
+const TOKEN = new URLSearchParams(location.search).get('token')
+          || localStorage.getItem('blynkToken')
+          || ENV_TOKEN
+          || 'YourAuthTokenHere';
+const POLL_MS = 5000;
+const SENSOR_PIN = {ph:'V3', ec:'V4', temp:'V0', hum:'V1', tank:'V2'};
+
+/* ============ METRIC CONFIG ============ */
+const METRICS = {
+  ph:   {name:'pH',                 icon:'🧪', unit:'',    min:0,  max:14,   ideal:[5.5,6.5],   warn:0.4, dec:2, value:6.0},
+  ec:   {name:'Condutividade (EC)', icon:'⚡', unit:'ppm', min:0,  max:2000, ideal:[600,1000],  warn:150, dec:0, value:800},
+  temp: {name:'Temperatura',        icon:'🌡️', unit:'°C',  min:10, max:35,   ideal:[18,26],     warn:2.5, dec:1, value:22},
+  hum:  {name:'Umidade',            icon:'💧', unit:'%',   min:0,  max:100,  ideal:[60,80],     warn:7,   dec:0, value:70},
+  // Tank has its own one-sided limits (only "too low" is bad) + custom card, so it
+  // doesn't use ideal/warn like the others: crit below `crit`, warn below `warn`.
+  tank: {name:'Nível do Tanque',    unit:'%',   min:0,  max:100,  crit:20, warn:35, value:100},
+};
+const ORDER = ['ph','ec','temp','hum'];
+const HIST = {ph:[], ec:[]};
+
+/* ============ STATUS LOGIC ============ */
+function statusOf(m){
+  const [lo,hi] = m.ideal, v = m.value;
+  if(v >= lo && v <= hi) return 'ok';
+  if(v >= lo - m.warn && v <= hi + m.warn) return 'warn';
+  return 'crit';
+}
+function dirOf(m){ const [lo,hi]=m.ideal; return m.value<lo ? 'low' : m.value>hi ? 'high' : 'in'; }
+const LABEL = {ok:'OK', warn:'Atenção', crit:'Crítico'};
+
+/* ============ BUILD CARDS ============ */
+const cardsEl = document.getElementById('cards');
+ORDER.forEach(key=>{
+  const m = METRICS[key];
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.id = 'card-'+key;
+  el.innerHTML = `
+    <div class="card-top">
+      <div class="m-icon">${m.icon}</div>
+      <div class="m-meta">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span class="m-name">${m.name}</span>
+          <span class="badge b-ok" id="badge-${key}"><span class="bd"></span>OK</span>
+        </div>
+        <div class="m-ideal">Faixa ideal: ${m.ideal[0]}${m.unit?' '+m.unit:''} – ${m.ideal[1]}${m.unit?' '+m.unit:''}</div>
+        <div class="m-valwrap">
+          <span class="m-val" id="val-${key}">—</span>
+          <span class="m-unit">${m.unit}</span>
+          <span class="m-trend" id="trend-${key}"></span>
+        </div>
+      </div>
+    </div>
+    <div class="track">
+      <div class="band" id="band-${key}"></div>
+      <div class="fill s-ok" id="fill-${key}"></div>
+      <div class="thumb" id="thumb-${key}"></div>
+    </div>
+    <div class="scale"><span>${m.min}</span><span>${m.max}${m.unit?' '+m.unit:''}</span></div>
+  `;
+  cardsEl.appendChild(el);
+  // position ideal band once
+  const band = el.querySelector('#band-'+key);
+  const span = m.max - m.min;
+  band.style.left = ((m.ideal[0]-m.min)/span*100)+'%';
+  band.style.width = ((m.ideal[1]-m.ideal[0])/span*100)+'%';
+});
+
+/* ============ RENDER DASHBOARD ============ */
+function renderMetric(key){
+  const m = METRICS[key], st = statusOf(m);
+  const card = document.getElementById('card-'+key);
+  card.className = 'card s-'+st;
+  document.getElementById('val-'+key).textContent = m.value.toFixed(m.dec);
+  const badge = document.getElementById('badge-'+key);
+  badge.className = 'badge b-'+st;
+  badge.innerHTML = `<span class="bd"></span>${LABEL[st]}`;
+  const span = m.max - m.min;
+  const pct = Math.max(0, Math.min(100, (m.value-m.min)/span*100));
+  const fill = document.getElementById('fill-'+key);
+  fill.className = 'fill s-'+st;
+  fill.style.width = pct+'%';
+  document.getElementById('thumb-'+key).style.left = pct+'%';
+  // trend
+  const t = m._trend || 0;
+  const tEl = document.getElementById('trend-'+key);
+  if(Math.abs(t) < (m.dec===0?0.5:0.01)){ tEl.textContent='→'; tEl.style.color='#9bb3a7'; }
+  else if(t>0){ tEl.textContent='▲ '+Math.abs(t).toFixed(m.dec); tEl.style.color='var(--muted)'; }
+  else { tEl.textContent='▼ '+Math.abs(t).toFixed(m.dec); tEl.style.color='var(--muted)'; }
+}
+
+function renderTank(){
+  const t = METRICS.tank, v = Math.round(t.value);
+  document.getElementById('tankVal').textContent = v;
+  document.getElementById('tankPct').textContent = v+'%';
+  const water = document.getElementById('water');
+  water.style.height = v+'%';
+  let st='ok', note=`Capacidade dentro do esperado. Alerta crítico abaixo de ${t.crit}%.`;
+  if(v < t.crit){ st='crit'; note='Nível crítico! Reabasteça o reservatório de solução nutritiva.'; water.classList.add('low'); }
+  else if(v < t.warn){ st='warn'; note='Nível baixo. Considere reabastecer em breve.'; water.classList.remove('low'); }
+  else { water.classList.remove('low'); }
+  document.getElementById('tankNote').textContent = note;
+  document.getElementById('tankCard').className = 'card s-'+(st==='ok'?'':st);
+  if(st!=='ok') document.getElementById('tankCard').classList.add('card','s-'+st);
+  const badge = document.getElementById('tankBadge');
+  badge.className = 'badge b-'+st;
+  badge.innerHTML = `<span class="bd"></span>${LABEL[st]}`;
+  document.getElementById('tankIcon').style.background =
+    st==='crit'?'var(--crit-bg)':st==='warn'?'var(--warn-bg)':'var(--ok-bg)';
+}
+
+/* ============ BANNER ============ */
+function updateBanner(){
+  const issues = [];
+  let worst = 'ok';
+  ORDER.forEach(k=>{ const s=statusOf(METRICS[k]); if(s!=='ok'){issues.push({n:METRICS[k].name,s});} if(s==='crit')worst='crit';else if(s==='warn'&&worst!=='crit')worst='warn';});
+  const t = METRICS.tank, tv = Math.round(t.value);
+  if(tv<t.crit){issues.push({n:t.name,s:'crit'});worst='crit';}
+  else if(tv<t.warn){issues.push({n:t.name,s:'warn'});if(worst!=='crit')worst='warn';}
+
+  const banner = document.getElementById('banner');
+  if(issues.length===0){ banner.className='banner'; return; }
+  const crit = issues.filter(i=>i.s==='crit').map(i=>i.n);
+  const warn = issues.filter(i=>i.s==='warn').map(i=>i.n);
+  let txt;
+  if(crit.length){ txt = `Crítico: ${crit.join(', ')} fora da faixa segura!`; }
+  else { txt = `Atenção: ${warn.join(', ')} próximo do limite.`; }
+  document.getElementById('bText').textContent = txt;
+  document.getElementById('bIcon').textContent = worst==='crit'?'🚨':'⚠️';
+  banner.className = 'banner show '+worst;
+}
+
+/* ============ CHART ============ */
+let chartSensor = 'ph';
+const SVGNS='http://www.w3.org/2000/svg';
+function drawChart(){
+  const svg = document.getElementById('chart');
+  svg.innerHTML='';
+  const W=320,H=200,padL=34,padR=12,padT=14,padB=24;
+  const series = chartSensor==='both' ? ['ph','ec'] : [chartSensor];
+  const colors = {ph:'#2d6a4f', ec:'#c6871a'};
+
+  // grid lines
+  for(let i=0;i<=4;i++){
+    const y = padT + (H-padT-padB)*i/4;
+    const ln=document.createElementNS(SVGNS,'line');
+    ln.setAttribute('x1',padL);ln.setAttribute('x2',W-padR);ln.setAttribute('y1',y);ln.setAttribute('y2',y);
+    ln.setAttribute('stroke','#eef3f0');ln.setAttribute('stroke-width','1');
+    svg.appendChild(ln);
+  }
+
+  series.forEach(sk=>{
+    const m=METRICS[sk];
+    const data=HIST[sk];
+    if(data.length<2) return;
+    // y scale uses ideal range +/- padding
+    const lo=m.ideal[0], hi=m.ideal[1];
+    const yMin = lo - (hi-lo)*0.9, yMax = hi + (hi-lo)*0.9;
+    const n=data.length;
+    const x=i=> padL + (W-padL-padR)*(n===1?0.5:i/(n-1));
+    const y=v=> padT + (H-padT-padB)*(1-(v-yMin)/(yMax-yMin));
+
+    // ideal band
+    const bandTop=y(hi), bandBot=y(lo);
+    const rect=document.createElementNS(SVGNS,'rect');
+    rect.setAttribute('x',padL);rect.setAttribute('width',W-padL-padR);
+    rect.setAttribute('y',bandTop);rect.setAttribute('height',Math.max(0,bandBot-bandTop));
+    rect.setAttribute('fill',colors[sk]);rect.setAttribute('opacity','0.07');
+    svg.appendChild(rect);
+
+    // area
+    let dPath='', aPath=`M ${x(0)} ${y(data[0])}`;
+    data.forEach((v,i)=>{ const cmd = i===0?'M':'L'; dPath+=`${cmd} ${x(i).toFixed(1)} ${y(v).toFixed(1)} `; if(i>0)aPath+=` L ${x(i).toFixed(1)} ${y(v).toFixed(1)}`;});
+    aPath+=` L ${x(n-1)} ${H-padB} L ${x(0)} ${H-padB} Z`;
+    if(series.length===1){
+      const area=document.createElementNS(SVGNS,'path');
+      area.setAttribute('d',aPath);area.setAttribute('fill',colors[sk]);area.setAttribute('opacity','0.10');
+      svg.appendChild(area);
+    }
+    const path=document.createElementNS(SVGNS,'path');
+    path.setAttribute('d',dPath);path.setAttribute('fill','none');
+    path.setAttribute('stroke',colors[sk]);path.setAttribute('stroke-width','2.5');
+    path.setAttribute('stroke-linejoin','round');path.setAttribute('stroke-linecap','round');
+    svg.appendChild(path);
+    // points
+    data.forEach((v,i)=>{
+      const c=document.createElementNS(SVGNS,'circle');
+      c.setAttribute('cx',x(i));c.setAttribute('cy',y(v));c.setAttribute('r', i===n-1?4:2.6);
+      c.setAttribute('fill', i===n-1?colors[sk]:'#fff');c.setAttribute('stroke',colors[sk]);c.setAttribute('stroke-width','2');
+      svg.appendChild(c);
+    });
+    // y labels (only when single)
+    if(series.length===1){
+      [yMax, (yMin+yMax)/2, yMin].forEach(val=>{
+        const tx=document.createElementNS(SVGNS,'text');
+        tx.setAttribute('x',padL-6);tx.setAttribute('y',y(val)+3);tx.setAttribute('text-anchor','end');
+        tx.setAttribute('font-size','9');tx.setAttribute('fill','#a6bdb1');tx.setAttribute('font-weight','600');
+        tx.textContent=val.toFixed(m.dec);
+        svg.appendChild(tx);
+      });
+    }
+  });
+
+  // x label
+  const tx=document.createElementNS(SVGNS,'text');
+  tx.setAttribute('x',(padL+W-padR)/2);tx.setAttribute('y',H-6);tx.setAttribute('text-anchor','middle');
+  tx.setAttribute('font-size','9');tx.setAttribute('fill','#a6bdb1');tx.setAttribute('font-weight','600');
+  tx.textContent='← mais antigo          mais recente →';
+  svg.appendChild(tx);
+
+  // header + stats + legend
+  const titleMap={ph:'pH',ec:'Condutividade (EC)',both:'pH & EC'};
+  document.getElementById('chartTtl').textContent=titleMap[chartSensor];
+  const legend=document.getElementById('legend');
+  legend.innerHTML = series.map(sk=>`<span><i style="background:${colors[sk]}"></i>${METRICS[sk].name}</span>`).join('');
+  const rangeEl=document.getElementById('chartRange');
+  if(chartSensor==='both') rangeEl.textContent='';
+  else { const m=METRICS[chartSensor]; rangeEl.textContent=`ideal ${m.ideal[0]}–${m.ideal[1]} ${m.unit}`; }
+
+  // stats
+  const sk = chartSensor==='both'?'ph':chartSensor;
+  const data=HIST[sk], m=METRICS[sk];
+  if(data.length){
+    const now=data[data.length-1];
+    const avg=data.reduce((a,b)=>a+b,0)/data.length;
+    const delta= data.length>1 ? now-data[data.length-2] : 0;
+    document.getElementById('cStatNow').innerHTML=`${now.toFixed(m.dec)} <small>${m.unit}</small>`;
+    document.getElementById('cStatAvg').innerHTML=`${avg.toFixed(m.dec)} <small>${m.unit}</small>`;
+    const ds=delta>=0?'+':'';
+    document.getElementById('cStatDelta').innerHTML=`${ds}${delta.toFixed(m.dec)} <small>${m.unit}</small>`;
+  } else {
+    document.getElementById('cStatNow').textContent='—';
+    document.getElementById('cStatAvg').textContent='—';
+    document.getElementById('cStatDelta').textContent='—';
+  }
+}
+
+document.getElementById('chartSeg').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  [...e.currentTarget.children].forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  chartSensor=b.dataset.sensor;
+  drawChart();
+});
+
+/* ============ ACTUATORS ============ */
+const ACT = {
+  nutrient:{pin:'V5', icon:'🔄', name:'Bomba de Nutrientes',        desc:'Eleva a condutividade (EC)', on:false, since:0, auto:false},
+  acid:    {pin:'V6', icon:'🧪', name:'Bomba de Ácido',             desc:'Reduz o pH',                 on:false, since:0, auto:false},
+  base:    {pin:'V7', icon:'⚗️', name:'Bomba de Base',              desc:'Eleva o pH',                 on:false, since:0, auto:false},
+  water:   {pin:'V8', icon:'💧', name:'Válvula de Reabastecimento', desc:'Repõe água no tanque',       on:false, since:0, auto:false},
+};
+
+const actsEl = document.getElementById('acts');
+Object.entries(ACT).forEach(([key,a])=>{
+  const el=document.createElement('div');
+  el.className='act-card';
+  el.id='act-'+key;
+  el.innerHTML=`
+    <div class="act-top">
+      <div class="act-icon">${a.icon}</div>
+      <div style="flex:1;min-width:0;">
+        <div class="act-name">${a.name}</div>
+        <div class="act-desc">${a.desc}<span class="auto-tag" id="auto-${key}" style="display:none;">⚡ Auto</span></div>
+      </div>
+      <button class="toggle" id="toggle-${key}" aria-label="Ligar ${a.name}"></button>
+    </div>
+    <div class="act-status"><span>⏱️</span><span id="txt-${key}">Desligada</span><span class="pill" id="time-${key}">—</span></div>
+  `;
+  actsEl.appendChild(el);
+  el.querySelector('#toggle-'+key).addEventListener('click',()=>writeActuator(key, !ACT[key].on, false));
+});
+
+function renderActuator(key){
+  const a=ACT[key];
+  document.getElementById('toggle-'+key).classList.toggle('on', a.on);
+  document.getElementById('act-'+key).classList.toggle('on', a.on);
+  document.getElementById('auto-'+key).style.display = (a.on && a.auto)?'inline-flex':'none';
+  document.getElementById('txt-'+key).textContent = a.on ? (a.auto?'Ligada automaticamente':'Ligada (manual)') : 'Desligada';
+  const pill=document.getElementById('time-'+key);
+  if(a.on){ const s=Math.floor((Date.now()-a.since)/1000); pill.textContent=fmtDur(s); }
+  else pill.textContent='—';
+}
+function fmtDur(s){
+  if(s<60) return s+'s';
+  const m=Math.floor(s/60), sec=s%60;
+  if(m<60) return `${m}m ${sec}s`;
+  const h=Math.floor(m/60); return `${h}h ${m%60}m`;
+}
+
+/* write actuator state to Blynk (manual or auto) */
+async function writeActuator(key,on,auto=false){
+  const a=ACT[key];
+  if(on && !a.on){ a.on=true; a.since=Date.now(); }
+  else if(!on && a.on){ a.on=false; a.since=0; }
+  a.auto = on ? auto : false;
+  renderActuator(key);
+  try{ await fetch(`${BLYNK}/update?token=${TOKEN}&${a.pin}=${on?1:0}`); }catch(e){}
+}
+/* reflect real pin state read from Blynk poll */
+function syncActuatorFromPin(key,val){
+  if(isNaN(val)) return;
+  const on=val>=1, a=ACT[key];
+  if(on && !a.on){ a.on=true; if(!a.since) a.since=Date.now(); }
+  else if(!on && a.on){ a.on=false; a.since=0; a.auto=false; }
+  renderActuator(key);
+}
+/* auto-actuation helper: drive a pump/valve toward the desired state */
+function auto(key,want){
+  const a=ACT[key];
+  if(want && !a.on) writeActuator(key,true,true);
+  else if(a.auto && !want) writeActuator(key,false);
+}
+function applyAutoActuation(){
+  const ph=statusOf(METRICS.ph), ec=statusOf(METRICS.ec);
+  auto('acid',     ph==='crit' && dirOf(METRICS.ph)==='high');  // pH alto demais → ácido
+  auto('base',     ph==='crit' && dirOf(METRICS.ph)==='low');   // pH baixo demais → base
+  auto('nutrient', ec==='crit' && dirOf(METRICS.ec)==='low');   // EC baixo → nutrientes
+  auto('water',    Math.round(METRICS.tank.value) < METRICS.tank.crit);  // tanque crítico → repor água
+}
+
+/* ============ NAV ============ */
+document.getElementById('nav').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  const v=b.dataset.view;
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.getElementById('screen').scrollTop=0;
+  if(v==='charts') drawChart();
+});
+
+/* ============ RENDER LOOP ============ */
+function refresh(){
+  ORDER.forEach(k=>renderMetric(k));
+  renderTank();
+  applyAutoActuation();
+  updateBanner();
+  if(document.getElementById('view-charts').classList.contains('active')) drawChart();
+}
+
+/* ============ LIVE INDICATOR ============ */
+function setLive(ok){
+  const live=document.getElementById('live');
+  if(ok){
+    live.className='live';
+    live.innerHTML='<span class="dot"></span> Ao vivo';
+  } else {
+    live.className='live off';
+    live.innerHTML='<span class="dot"></span> Offline';
+    const banner=document.getElementById('banner');
+    document.getElementById('bText').textContent='Sem conexão com o dispositivo. Verifique o token e se o IoT está online.';
+    document.getElementById('bIcon').textContent='🔌';
+    banner.className='banner show crit';
+  }
+}
+
+/* ============ BLYNK POLLING ============ */
+async function poll(){
+  try{
+    const r = await fetch(`${BLYNK}/getAll?token=${TOKEN}`);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const d = await r.json();
+    const num = p => parseFloat(d[p] ?? d[p.toLowerCase()]);
+
+    ['ph','ec','temp','hum'].forEach(k=>{
+      const v = num(SENSOR_PIN[k]);
+      if(!isNaN(v)){ const m=METRICS[k]; m._trend = v - m.value; m.value = v; }
+    });
+    const tv = num(SENSOR_PIN.tank);
+    if(!isNaN(tv)) METRICS.tank.value = tv;
+
+    // history (last 10)
+    HIST.ph.push(METRICS.ph.value); if(HIST.ph.length>10) HIST.ph.shift();
+    HIST.ec.push(METRICS.ec.value); if(HIST.ec.length>10) HIST.ec.shift();
+
+    // actuators reflect the device's real pin state
+    Object.keys(ACT).forEach(k=>syncActuatorFromPin(k, num(ACT[k].pin)));
+
+    setLive(true);
+    document.getElementById('updAt').textContent = 'atualizado ' + new Date().toLocaleTimeString('pt-BR');
+    refresh();
+  }catch(e){
+    setLive(false);
+  }
+}
+
+/* ============ TOKEN OVERLAY ============ */
+function ensureToken(){
+  if(TOKEN && TOKEN!=='YourAuthTokenHere') return true;
+  const ov=document.createElement('div');
+  ov.className='token-ov';
+  ov.innerHTML=`
+    <div class="token-box">
+      <h3>🌿 Conectar ao Blynk</h3>
+      <p>Cole o <b>Auth Token</b> do seu dispositivo Blynk para ver os dados ao vivo. Ele fica salvo só neste navegador.</p>
+      <input id="tk" type="text" placeholder="Auth Token" autocomplete="off" spellcheck="false">
+      <button id="tkSave">Conectar</button>
+    </div>`;
+  document.body.appendChild(ov);
+  const save=()=>{
+    const v=ov.querySelector('#tk').value.trim();
+    if(v){ localStorage.setItem('blynkToken', v); location.href = location.pathname + '?token=' + encodeURIComponent(v); }
+  };
+  ov.querySelector('#tkSave').addEventListener('click', save);
+  ov.querySelector('#tk').addEventListener('keydown', e=>{ if(e.key==='Enter') save(); });
+  return false;
+}
+
+/* ============ BOOT ============ */
+ORDER.forEach(k=>renderMetric(k));
+renderTank();
+Object.keys(ACT).forEach(k=>renderActuator(k));
+updateBanner();
+drawChart();
+
+if(ensureToken()){
+  poll();
+  setInterval(poll, POLL_MS);
+}
+
+/* uptime ticker every second */
+setInterval(()=>{ Object.keys(ACT).forEach(k=>{ if(ACT[k].on) renderActuator(k); }); }, 1000);
+</script>
+</body>
+</html>

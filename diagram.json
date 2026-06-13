@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "author": "geti-iot",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+
+    { "type": "wokwi-text", "id": "txtDht", "top": -48, "left": 320, "attrs": { "text": "Temp / Umidade  (V0,V1 - GPIO15)", "fontSize": "10", "color": "#2e7d32" } },
+    { "type": "wokwi-dht22", "id": "dht", "top": 0, "left": 320, "attrs": {} },
+
+    { "type": "wokwi-text", "id": "txtLevel", "top": 212, "left": 320, "attrs": { "text": "Nivel do tanque  (V2 - GPIO32)", "fontSize": "10", "color": "#2e7d32" } },
+    { "type": "wokwi-text", "id": "txtPh", "top": 212, "left": 560, "attrs": { "text": "pH  (V3 - GPIO34)", "fontSize": "10", "color": "#2e7d32" } },
+    { "type": "wokwi-text", "id": "txtEc", "top": 212, "left": 800, "attrs": { "text": "EC / ppm  (V4 - GPIO35)", "fontSize": "10", "color": "#2e7d32" } },
+
+    { "type": "wokwi-potentiometer", "id": "potLevel", "top": 250, "left": 320, "attrs": {} },
+    { "type": "wokwi-potentiometer", "id": "potPh", "top": 250, "left": 560, "attrs": {} },
+    { "type": "wokwi-potentiometer", "id": "potEc", "top": 250, "left": 800, "attrs": {} },
+
+    { "type": "wokwi-text", "id": "txtNutrient", "top": 400, "left": 320, "attrs": { "text": "Bomba Nutrientes  (V5 - GPIO25)", "fontSize": "10", "color": "#1565c0" } },
+    { "type": "wokwi-text", "id": "txtAcid", "top": 400, "left": 620, "attrs": { "text": "Bomba Acido  (V6 - GPIO26)", "fontSize": "10", "color": "#1565c0" } },
+    { "type": "wokwi-text", "id": "txtBase", "top": 520, "left": 320, "attrs": { "text": "Bomba Base  (V7 - GPIO27)", "fontSize": "10", "color": "#1565c0" } },
+    { "type": "wokwi-text", "id": "txtWater", "top": 520, "left": 620, "attrs": { "text": "Valvula Agua  (V8 - GPIO14)", "fontSize": "10", "color": "#1565c0" } },
+
+    { "type": "wokwi-led", "id": "ledNutrient", "top": 432, "left": 400, "attrs": { "color": "green" } },
+    { "type": "wokwi-led", "id": "ledAcid", "top": 432, "left": 700, "attrs": { "color": "red" } },
+    { "type": "wokwi-led", "id": "ledBase", "top": 552, "left": 400, "attrs": { "color": "blue" } },
+    { "type": "wokwi-led", "id": "ledWater", "top": 552, "left": 700, "attrs": { "color": "cyan" } },
+
+    { "type": "wokwi-resistor", "id": "rNutrient", "top": 438, "left": 310, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "rAcid", "top": 438, "left": 610, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "rBase", "top": 558, "left": 310, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "rWater", "top": 558, "left": 610, "attrs": { "value": "220" } }
+  ],
+  "connections": [
+    [ "esp:TX0", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX0", "$serialMonitor:TX", "", [] ],
+
+    [ "dht:VCC", "esp:3V3", "red", [] ],
+    [ "dht:GND", "esp:GND.1", "black", [] ],
+    [ "dht:SDA", "esp:15", "green", [] ],
+
+    [ "potLevel:VCC", "esp:3V3", "red", [] ],
+    [ "potLevel:GND", "esp:GND.1", "black", [] ],
+    [ "potLevel:SIG", "esp:32", "blue", [] ],
+
+    [ "potPh:VCC", "esp:3V3", "red", [] ],
+    [ "potPh:GND", "esp:GND.1", "black", [] ],
+    [ "potPh:SIG", "esp:34", "purple", [] ],
+
+    [ "potEc:VCC", "esp:3V3", "red", [] ],
+    [ "potEc:GND", "esp:GND.1", "black", [] ],
+    [ "potEc:SIG", "esp:35", "orange", [] ],
+
+    [ "esp:25", "rNutrient:1", "green", [] ],
+    [ "rNutrient:2", "ledNutrient:A", "green", [] ],
+    [ "ledNutrient:C", "esp:GND.2", "black", [] ],
+
+    [ "esp:26", "rAcid:1", "red", [] ],
+    [ "rAcid:2", "ledAcid:A", "red", [] ],
+    [ "ledAcid:C", "esp:GND.2", "black", [] ],
+
+    [ "esp:27", "rBase:1", "blue", [] ],
+    [ "rBase:2", "ledBase:A", "blue", [] ],
+    [ "ledBase:C", "esp:GND.2", "black", [] ],
+
+    [ "esp:14", "rWater:1", "cyan", [] ],
+    [ "rWater:2", "ledWater:A", "cyan", [] ],
+    [ "ledWater:C", "esp:GND.2", "black", [] ]
+  ],
+  "dependencies": {}
+}

@@ -1,0 +1,7 @@
+[wokwi]
+version = 1
+# Arduino IDE: Sketch -> Export Compiled Binary writes here (FQBN esp32:esp32:esp32).
+# If you compile with arduino-cli instead, use: build/sketch.ino.bin + build/sketch.ino.elf
+# If you use PlatformIO, use: .pio/build/<env>/firmware.bin + firmware.elf
+firmware = "build/esp32.esp32.esp32/sketch.ino.bin"
+elf = "build/esp32.esp32.esp32/sketch.ino.elf"
